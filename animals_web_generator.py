@@ -8,7 +8,7 @@ def load_data(file_path):
 
 
 def get_animal_info():
-    """Reads the content of animals_data.json, iterates through the animals, and for each one prints:
+    """Reads the content of animals_data.json, iterates through the animals, and for each one returns:
     - Name
     - Diet
     - The first location from the locations list
@@ -17,6 +17,8 @@ def get_animal_info():
     """
 
     animals_data = load_data('animals_data.json')
+    output = ""
+
     for animal in animals_data:
         name = animal.get("name")
         locations = animal.get("locations", [])
@@ -24,8 +26,21 @@ def get_animal_info():
         diet = characteristics.get("diet")
         animal_type = characteristics.get("type")
 
-        if name: print(f"Name: {name}")
-        if diet: print(f"Diet: {diet}")
-        if locations: print(f"Location: {locations[0]}")
-        if animal_type: print(f"Type: {animal_type}")
-        print()
+        if name: output += f"Name: {name}\n"
+        if diet: output += f"Diet: {diet}\n"
+        if locations: output += f"Location: {locations[0]}\n"
+        if animal_type: output += f"Type: {animal_type}\n"
+
+    return output
+
+
+def create_new_html():
+    with open("animals_template.html", "r") as template:
+        animals = template.read()
+
+        with open("animals.html", "w") as new:
+            new.write(animals.replace("__REPLACE_ANIMALS_INFO__", get_animal_info()))
+
+
+if __name__ == "__main__":
+    create_new_html()
