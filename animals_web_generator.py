@@ -26,10 +26,12 @@ def get_animal_info():
         diet = characteristics.get("diet")
         animal_type = characteristics.get("type")
 
-        if name: output += f"Name: {name}\n"
-        if diet: output += f"Diet: {diet}\n"
-        if locations: output += f"Location: {locations[0]}\n"
-        if animal_type: output += f"Type: {animal_type}\n"
+        output += '<li class="cards__item">'
+        if name: output += f"Name: {name}<br/>\n"
+        if diet: output += f"Diet: {diet}<br/>\n"
+        if locations: output += f"Location: {locations[0]}<br/>\n"
+        if animal_type: output += f"Type: {animal_type}<br/>\n"
+        output += '</li>'
 
     return output
 
