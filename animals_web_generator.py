@@ -19,6 +19,27 @@ def esc(value) -> str | None:
     return html.escape(str(value)) if value is not None else None
 
 
+def prompt_for_skin_type(skin_types: list, has_unknown: bool = False) -> str:
+    """Ask the user to choose a skin type from the list
+    and return a valid choice (preserving original casing)."""
+
+    print("Available skin types:")
+    for st in skin_types:
+        print(f" - {st}")
+    if has_unknown:
+        print(" - Unknown")
+
+    lookup = {st.lower(): st for st in skin_types}
+    if has_unknown:
+        lookup["unknown"] = "Unknown"
+
+    while True:
+        choice_raw = input("\nEnter a skin_type from the list above: ").strip().lower()
+        if choice_raw in lookup:
+            return lookup[choice_raw]  # Return with proper casing
+        print("Not in the list. Please enter exactly one of the shown values.")
+
+
 def serialize_animal(animal: Dict[str, Any]) -> str:
     """Serialize a single animal into an HTML <li> block with inner list styling classes."""
 
@@ -83,9 +104,9 @@ def collect_skin_types(data) -> list:
         if not skin_type_str:
             continue  # skip empty string
 
-        lower_value = skin_type_str.lower()
-        if lower_value not in seen_lowercase:
-            seen_lowercase.add(lower_value)
+        skin_type_lower = skin_type_str.lower()
+        if skin_type_lower not in seen_lowercase:
+            seen_lowercase.add(skin_type_lower)
             skin_types.append(skin_type_str)  # keep the first original version
 
     return skin_types
@@ -97,7 +118,7 @@ def filter_by_skin_type(data, chosen_skin: str) -> list:
     """
 
     filtered_animals = []
-    chosen_lower = chosen_skin.strip().lower()
+    chosen_skin_lower = chosen_skin.strip().lower()
 
     for animal in data:
         characteristics = animal.get("characteristics", {})
@@ -108,7 +129,7 @@ def filter_by_skin_type(data, chosen_skin: str) -> list:
             continue
 
         # Compare case-insensitively
-        if str(skin_type).strip().lower() == chosen_lower:
+        if str(skin_type).strip().lower() == chosen_skin_lower:
             filtered_animals.append(animal)
 
     return filtered_animals
@@ -131,14 +152,17 @@ def collect_unknown_skin_type(data) -> list:
     return unknown
 
 
-def build_cards_block() -> str:
-    """Builds the HTML string for all animals."""
-    animals_data = load_data(DATA_FILE)
-    cards = [serialize_animal(a) for a in animals_data]
-    return "".join(cards)
+def select_animals_by_choice(data, chosen_label: str, unknown_animals: list) -> list:
+    """
+    Return the list of animals based on the chosen skin type label.
+    If 'Unknown' is chosen, return animals with missing/empty skin_type.
+    """
+    if chosen_label == "Unknown":
+        return unknown_animals
+    return filter_by_skin_type(data, chosen_label)
 
 
-def create_new_html(cards_html) -> None:
+def create_new_html(cards_html: str) -> None:
     """Replaces the placeholder in the template with generated HTML and saves output."""
 
     with open(TEMPLATE_FILE, "r", encoding="utf-8") as template:
@@ -151,10 +175,7 @@ def create_new_html(cards_html) -> None:
 
 
 def main():
-    # 1) Load data
     data = load_data(DATA_FILE)
-
-    # 2) Build the options
     skin_types = collect_skin_types(data)
     unknown_animals = collect_unknown_skin_type(data)
 
@@ -162,41 +183,16 @@ def main():
         print("No skin types found in data.")
         return
 
-    # 3) Show choices (include 'Unknown' only if there are any unknowns)
-    print("Available skin types:")
-    for st in skin_types:
-        print(f" - {st}")
-    if unknown_animals:
-        print(" - Unknown")
+    chosen_label = prompt_for_skin_type(skin_types, has_unknown=bool(unknown_animals))
 
-    # Case-insensitive validation map: user input (lowercased) -> display label
-    lookup = {st.lower(): st for st in skin_types}
-    if unknown_animals:
-        lookup["unknown"] = "Unknown"
-
-    # 4) Prompt until valid
-    while True:
-        choice_raw = input("\nEnter a skin_type from the list above: ").strip().lower()
-        if choice_raw in lookup:
-            break
-        print("Not in the list. Please enter exactly one of the shown values.")
-
-    # 5) Filter by the choice
-    if choice_raw == "unknown":
-        chosen_label = "Unknown"
-        filtered = unknown_animals
-    else:
-        chosen_label = lookup[choice_raw]  # preserve original casing (e.g., "Hair")
-        filtered = filter_by_skin_type(data, chosen_label)
-
-    # 6) If nothing matched (rare), bail out gracefully
+    filtered = select_animals_by_choice(data, chosen_label, unknown_animals)
     if not filtered:
         print(f"No animals found with skin_type = '{chosen_label}'.")
         return
 
-    # 7) Build HTML and write
     cards_html = "".join(serialize_animal(a) for a in filtered)
     create_new_html(cards_html)
+    print(f"\nFound {len(filtered)} animals matching the selected criteria.")
     print(f"Generated {OUTPUT_FILE} with skin_type = '{chosen_label}'.")
 
 
