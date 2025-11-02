@@ -1,59 +1,85 @@
 import json
+import html
+from typing import Any, Dict, List
+
+DATA_FILE = "animals_data.json"
+TEMPLATE_FILE = "animals_template.html"
+OUTPUT_FILE = "animals.html"
+PLACEHOLDER = "__REPLACE_ANIMALS_INFO__"
 
 
-def load_data(file_path):
-  """Loads a JSON file."""
-  with open(file_path, "r") as handle:
-    return json.load(handle)
+def load_data(file_path: str) -> Any:
+    """Loads a JSON file."""
+    with open(file_path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
 
 
-def serialize_animal(animal):
-    """Handles a single animal serialization."""
-
-    name = animal.get("name")
-    locations = animal.get("locations", [])
-    characteristics = animal.get("characteristics", {})
-    diet = characteristics.get("diet")
-    animal_type = characteristics.get("type")
-    main_prey = characteristics.get("main_prey")
-    distinctive_feature = characteristics.get("distinctive_feature")
-    habitat = characteristics.get("habitat")
-
-    output = ""
-    output += '<li class="cards__item">\n'
-    if name: output += f'<div class="card__title"><strong>{name}</strong></div>\n'
-    output += '<div class="card__text">\n<ul>\n'
-    if diet: output += f'<li><strong>Diet:</strong> {diet}</li>\n'
-    if main_prey: output += f'<li><strong>Main prey:</strong> {main_prey}</li>\n'
-    if locations: output += f'<li><strong>Location:</strong> {locations[0]}</li>\n'
-    if habitat: output += f'<li><strong>Habitat:</strong> {habitat}</li>\n'
-    if animal_type: output += f'<li><strong>Type:</strong> {animal_type}</li>\n'
-    if distinctive_feature: output += f'<li><strong>Distinctive feature:</strong> {distinctive_feature}</li>\n'
-    output += '</ul>\n</div>\n</li>\n'
-
-    return output
+def esc(value) -> str | None:
+    """HTML-escape a value if it exists."""
+    return html.escape(str(value)) if value is not None else None
 
 
-def get_animal_info():
-    """Reads the content of animals_data.json, iterates through the animals, and for each one returns name, diet,
-    the first location from the locations list, type.
-    If one of these fields doesn’t exist, don’t print it.
-    """
+def serialize_animal(animal: Dict[str, Any]) -> str:
+    """Serialize a single animal into an HTML <li> block with inner list styling classes."""
 
-    animals_data = load_data('animals_data.json')
-    output = ""
+    name = esc(animal.get("name"))
+    locations: List[str] = animal.get("locations", []) or []
+    ch: Dict[str, Any] = animal.get("characteristics", {}) or {}
 
-    for animal in animals_data:
-        output += serialize_animal(animal)
-    return output
+    diet = esc(ch.get("diet"))
+    animal_type = esc(ch.get("type"))
+    main_prey = esc(ch.get("main_prey"))
+    distinctive_feature = esc(
+        ch.get("distinctive_feature") or ch.get("most_distinctive_feature")
+    )
+    habitat = esc(ch.get("habitat"))
+
+    if not name:
+        return ""  # skip if name missing
+
+    parts: List[str] = []
+    parts.append('<li class="cards__item">')
+    parts.append(f'  <div class="card__title"><strong>{name}</strong></div>')
+    parts.append('  <div class="card__text">')
+    parts.append('    <ul class="animal-info">')
+
+    if diet:
+        parts.append(f'      <li class="animal-info__item"><strong>Diet:</strong> {diet}</li>')
+    if main_prey:
+        parts.append(f'      <li class="animal-info__item"><strong>Main prey:</strong> {main_prey}</li>')
+    if locations:
+        parts.append(f'      <li class="animal-info__item"><strong>Location:</strong> {esc(locations[0])}</li>')
+    if habitat:
+        parts.append(f'      <li class="animal-info__item"><strong>Habitat:</strong> {habitat}</li>')
+    if animal_type:
+        parts.append(f'      <li class="animal-info__item"><strong>Type:</strong> {animal_type}</li>')
+    if distinctive_feature:
+        parts.append(
+            f'      <li class="animal-info__item"><strong>Distinctive feature:</strong> {distinctive_feature}</li>')
+
+    parts.append('    </ul>')
+    parts.append('  </div>')
+    parts.append('</li>')
+    return "\n".join(parts) + "\n"
 
 
-def create_new_html():
-    with open("animals_template.html", "r") as template:
-        animals = template.read()
+def get_animal_info() -> str:
+    """Builds the HTML string for all animals."""
+    animals_data = load_data(DATA_FILE)
+    cards = [serialize_animal(a) for a in animals_data]
+    return "".join(cards)
 
-        with open("animals.html", "w") as new:
-            new.write(animals.replace("__REPLACE_ANIMALS_INFO__", get_animal_info()))
+
+def create_new_html() -> None:
+    """Replaces the placeholder in the template with generated HTML and saves output."""
+
+    with open(TEMPLATE_FILE, "r", encoding="utf-8") as template:
+        tpl = template.read()
+
+    html_out = tpl.replace(PLACEHOLDER, get_animal_info())
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as new:
+        new.write(html_out)
 
 
 if __name__ == "__main__":
