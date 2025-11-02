@@ -14,14 +14,14 @@ def load_data(file_path: str) -> Any:
         return json.load(handle)
 
 
-def esc(value) -> str | None:
+def esc(value: Any) -> str | None:
     """HTML-escape a value if it exists."""
     return html.escape(str(value)) if value is not None else None
 
 
-def prompt_for_skin_type(skin_types: list, has_unknown: bool = False) -> str:
-    """Ask the user to choose a skin type from the list
-    and return a valid choice (preserving original casing)."""
+def prompt_for_skin_type(skin_types: List[str], has_unknown: bool = False) -> str:
+    """Prompt the user to choose a skin_type from the displayed list.
+    Returns the chosen skin_type label (original casing), or 'Unknown'."""
 
     print("Available skin types:")
     for st in skin_types:
@@ -36,86 +36,89 @@ def prompt_for_skin_type(skin_types: list, has_unknown: bool = False) -> str:
     while True:
         choice_raw = input("\nEnter a skin_type from the list above: ").strip().lower()
         if choice_raw in lookup:
-            return lookup[choice_raw]  # Return with proper casing
+            return lookup[choice_raw]
         print("Not in the list. Please enter exactly one of the shown values.")
 
 
 def serialize_animal(animal: Dict[str, Any]) -> str:
-    """Serialize a single animal into an HTML <li> block with inner list styling classes."""
+    """Serialize a single animal into an HTML <li> block with inner list styling classes.
+    Returns an HTML string for one card; empty string if the name is missing."""
 
     name = esc(animal.get("name"))
     locations: List[str] = animal.get("locations", []) or []
-    ch: Dict[str, Any] = animal.get("characteristics", {}) or {}
+    characteristics: Dict[str, Any] = animal.get("characteristics", {}) or {}
 
-    diet = esc(ch.get("diet"))
-    animal_type = esc(ch.get("type"))
-    main_prey = esc(ch.get("main_prey"))
+    diet = esc(characteristics.get("diet"))
+    animal_type = esc(characteristics.get("type"))
+    main_prey = esc(characteristics.get("main_prey"))
     distinctive_feature = esc(
-        ch.get("distinctive_feature") or ch.get("most_distinctive_feature")
+        characteristics.get("distinctive_feature")
+        or characteristics.get("most_distinctive_feature")
     )
-    habitat = esc(ch.get("habitat"))
+    habitat = esc(characteristics.get("habitat"))
 
     if not name:
-        return ""  # skip if name missing
+        return ""
 
-    parts: List[str] = []
-    parts.append('<li class="cards__item">')
-    parts.append(f'  <div class="card__title"><strong>{name}</strong></div>')
-    parts.append('  <div class="card__text">')
-    parts.append('    <ul class="animal-info">')
+    # Indentation helpers for readable HTML output
+    i1, i2, i3 = "  ", "    ", "      "
+
+    parts: List[str] = [
+        f"<li class=\"cards__item\">",
+        f"{i1}<div class=\"card__title\"><strong>{name}</strong></div>",
+        f"{i1}<div class=\"card__text\">",
+        f"{i2}<ul class=\"animal-info\">",
+    ]
 
     if diet:
-        parts.append(f'      <li class="animal-info__item"><strong>Diet:</strong> {diet}</li>')
+        parts.append(f"{i3}<li class=\"animal-info__item\"><strong>Diet:</strong> {diet}</li>")
     if main_prey:
-        parts.append(f'      <li class="animal-info__item"><strong>Main prey:</strong> {main_prey}</li>')
+        parts.append(f"{i3}<li class=\"animal-info__item\"><strong>Main prey:</strong> {main_prey}</li>")
     if locations:
-        parts.append(f'      <li class="animal-info__item"><strong>Location:</strong> {esc(locations[0])}</li>')
+        parts.append(f"{i3}<li class=\"animal-info__item\"><strong>Location:</strong> {esc(locations[0])}</li>")
     if habitat:
-        parts.append(f'      <li class="animal-info__item"><strong>Habitat:</strong> {habitat}</li>')
+        parts.append(f"{i3}<li class=\"animal-info__item\"><strong>Habitat:</strong> {habitat}</li>")
     if animal_type:
-        parts.append(f'      <li class="animal-info__item"><strong>Type:</strong> {animal_type}</li>')
+        parts.append(f"{i3}<li class=\"animal-info__item\"><strong>Type:</strong> {animal_type}</li>")
     if distinctive_feature:
         parts.append(
-            f'      <li class="animal-info__item"><strong>Distinctive feature:</strong> {distinctive_feature}</li>')
+            f"{i3}<li class=\"animal-info__item\"><strong>Distinctive feature:</strong> {distinctive_feature}</li>"
+        )
 
-    parts.append('    </ul>')
-    parts.append('  </div>')
-    parts.append('</li>')
+    parts.extend([
+        f"{i2}</ul>",
+        f"{i1}</div>",
+        "</li>",
+    ])
     return "\n".join(parts) + "\n"
 
 
 def collect_skin_types(data) -> list:
-    """
-    Collect unique, non-empty skin_type values from JSON data.
-    Keeps the first appearance order and original capitalization.
-    """
+    """Collect unique, non-empty skin_type values; keep first-seen order and casing."""
 
-    seen_lowercase = set()   # To track duplicates in lowercase
+    seen_lowercase = set()
     skin_types = []
 
     for animal in data:
         characteristics = animal.get("characteristics", {})
         skin_type = characteristics.get("skin_type")
-
         if not skin_type:
-            continue  # skip missing
+            continue
 
         skin_type_str = str(skin_type).strip()
         if not skin_type_str:
-            continue  # skip empty string
+            continue
 
         skin_type_lower = skin_type_str.lower()
         if skin_type_lower not in seen_lowercase:
             seen_lowercase.add(skin_type_lower)
-            skin_types.append(skin_type_str)  # keep the first original version
+            skin_types.append(skin_type_str)
 
     return skin_types
 
 
 def filter_by_skin_type(data, chosen_skin: str) -> list:
-    """
-    Return only animals whose skin_type matches the chosen one (case-insensitive).
-    """
+    """Filter animals by a chosen skin_type (case-insensitive)."""
 
     filtered_animals = []
     chosen_skin_lower = chosen_skin.strip().lower()
@@ -123,12 +126,9 @@ def filter_by_skin_type(data, chosen_skin: str) -> list:
     for animal in data:
         characteristics = animal.get("characteristics", {})
         skin_type = characteristics.get("skin_type")
-
-        # Skip missing or empty
         if not skin_type:
             continue
 
-        # Compare case-insensitively
         if str(skin_type).strip().lower() == chosen_skin_lower:
             filtered_animals.append(animal)
 
@@ -136,45 +136,46 @@ def filter_by_skin_type(data, chosen_skin: str) -> list:
 
 
 def collect_unknown_skin_type(data) -> list:
-    """
-    Return animals whose characteristics.skin_type is missing or empty.
-    """
+    """Collect animals whose characteristics.skin_type is missing or empty."""
 
     unknown = []
     for animal in data:
         characteristics = animal.get("characteristics", {})
         skin_type = characteristics.get("skin_type")
-
-        # Missing or empty/whitespace-only
         if not skin_type or not str(skin_type).strip():
             unknown.append(animal)
-
     return unknown
 
 
 def select_animals_by_choice(data, chosen_label: str, unknown_animals: list) -> list:
-    """
-    Return the list of animals based on the chosen skin type label.
-    If 'Unknown' is chosen, return animals with missing/empty skin_type.
-    """
+    """Select animals based on the chosen label, including 'Unknown'."""
     if chosen_label == "Unknown":
         return unknown_animals
     return filter_by_skin_type(data, chosen_label)
 
 
-def create_new_html(cards_html: str) -> None:
-    """Replaces the placeholder in the template with generated HTML and saves output."""
+def create_new_html(cards_html: str, chosen_label: str, count: int) -> None:
+    """Replace the placeholder and write the output HTML, with h2 subheading."""
 
     with open(TEMPLATE_FILE, "r", encoding="utf-8") as template:
         tpl = template.read()
 
     html_out = tpl.replace(PLACEHOLDER, cards_html)
+    count_label = "animal" if count == 1 else "animals"
+    heading_html = (
+        "<h1>My Animal Repository</h1>\n"
+        f"<h2 class='subheading'>Skin type: {chosen_label} "
+        f"({count} {count_label})</h2>"
+    )
+    html_out = html_out.replace("<h1>My Animal Repository</h1>", heading_html)
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as new:
         new.write(html_out)
 
 
-def main():
+def main() -> None:
+    """Entry point: prompt for a skin_type, filter animals, render the HTML."""
+
     data = load_data(DATA_FILE)
     skin_types = collect_skin_types(data)
     unknown_animals = collect_unknown_skin_type(data)
@@ -184,14 +185,14 @@ def main():
         return
 
     chosen_label = prompt_for_skin_type(skin_types, has_unknown=bool(unknown_animals))
-
     filtered = select_animals_by_choice(data, chosen_label, unknown_animals)
     if not filtered:
         print(f"No animals found with skin_type = '{chosen_label}'.")
         return
 
     cards_html = "".join(serialize_animal(a) for a in filtered)
-    create_new_html(cards_html)
+    create_new_html(cards_html, chosen_label, len(filtered))
+
     print(f"\nFound {len(filtered)} animals matching the selected criteria.")
     print(f"Generated {OUTPUT_FILE} with skin_type = '{chosen_label}'.")
 
